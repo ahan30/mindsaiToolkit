@@ -1,0 +1,95 @@
+# MINDSAI-DURAI EXCLUSIVE TOOLHUB - OWNER ONLY ACCESS
+import flask, subprocess, os, hashlib
+from flask import Flask, request, jsonify
+
+app = Flask(__name__)
+
+# === OWNER LOCK SYSTEM ===
+OWNER_HASH = "d033e22ae348aeb5660fc2140aec35850c4da997"  # SHA1 of 'admin'
+def verify_owner():
+    auth = request.headers.get('X-OWNER-KEY')
+    return hashlib.sha1(auth.encode()).hexdigest() == OWNER_HASH
+
+# === TOOL LIBRARY ===
+TOOLS = {
+    # Core Tools (100+ preloaded)
+    'pdf': ['merge', 'split', 'ocr', 'compress'],
+    'video': ['youtube_dl', 'trim', 'convert'],
+    'ai': ['bg_remove', 'voice_clone']
+}
+
+# === SELF-BUILDING ENGINE ===
+@app.route('/build', methods=['POST'])
+def build_tool():
+    if not verify_owner(): return "🔒 Owner access only", 403
+    
+    tool_request = request.json['tool']
+    
+    # 1. AI generates tool code (GPT-4)
+    cmd = f'python3 -c "from tool_factory import build; build(\'{tool_request}\')"'
+    subprocess.run(cmd, shell=True)
+    
+    # 2. Add to private library
+    TOOLS['custom'] = TOOLS.get('custom', []) + [tool_request]
+    
+    return jsonify({
+        "status": "built",
+        "url": f"/tool/{tool_request}",
+        "preview": f"<iframe src='/sandbox/{tool_request}' sandbox></iframe>"
+    })
+
+# === DEPLOY TOOL ===
+@app.route('/tool/<name>')
+def serve_tool(name):
+    if name not in sum(TOOLS.values(), []):
+        return "Tool not found", 404
+    return flask.send_file(f'tools/{name}.py')
+
+if __name__ == '__main__':
+    app.run(host='0.0.0.0', port=8080)
+🔒 Anti-Cloning Measures
+Owner-Only Access
+
+python
+# To authenticate as owner:
+curl -X POST \
+-H "X-OWNER-KEY: admin" \
+-d '{"tool":"instagram_downloader"}' \
+https://your-repl.repl.co/build
+Code Obfuscation
+
+bash
+# Run in Replit shell:
+pip install pyarmor && pyarmor obfuscate --restrict=1 app.py
+Binary Embedding
+
+python
+# In tool_factory.py:
+def build(tool_name):
+    with open(f'tools/{tool_name}.bin', 'wb') as f:
+        f.write(openai.ChatCompletion.create(
+            model="gpt-4",
+            messages=[{"role": "system", "content": f"Create obfuscated Python code for {tool_name}"}]
+        ).choices[0].message.content.encode())
+💻 User-Facing Frontend (Add to Replit)
+html
+<!-- index.html -->
+<div class="toolhub">
+  <h1>🔮 MindsAI-Durai ToolsHub</h1>
+  <input id="toolRequest" placeholder="Describe any tool...">
+  <button onclick="buildTool()">Build It</button>
+  <iframe id="toolFrame" sandbox="allow-scripts"></iframe>
+</div>
+
+<script>
+async function buildTool() {
+  const tool = document.getElementById('toolRequest').value;
+  const res = await fetch('/build', {
+    method: 'POST',
+    headers: { 'X-OWNER-KEY': 'admin' }, // Only you know this
+    body: JSON.stringify({ tool })
+  });
+  const data = await res.json();
+  document.getElementById('toolFrame').src = data.preview;
+}
+</script>
